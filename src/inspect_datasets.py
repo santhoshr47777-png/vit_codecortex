@@ -3,7 +3,8 @@ import pandas as pd
 import json
 
 # ============================================================
-# THREATLENS X - DATASET INSPECTION
+# THREATLENS X
+# DATASET INSPECTION & VALIDATION
 # ============================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -12,330 +13,352 @@ REPORT_DIR = PROJECT_ROOT / "reports"
 
 REPORT_DIR.mkdir(exist_ok=True)
 
-print("=" * 70)
-print("             THREATLENS X - DATASET INSPECTION")
-print("=" * 70)
+print("=" * 75)
+print("              THREATLENS X - DATASET INSPECTION")
+print("=" * 75)
 
-print(f"\nProject directory : {PROJECT_ROOT}")
-print(f"Data directory    : {DATA_DIR}")
+print(f"\nProject : {PROJECT_ROOT}")
+print(f"Data    : {DATA_DIR}")
 
 if not DATA_DIR.exists():
-    print("\nERROR: data folder does not exist.")
-    print(f"Create it here: {DATA_DIR}")
+    print("\nERROR: data directory not found.")
     raise SystemExit(1)
 
-
 # ------------------------------------------------------------
-# Find supported files recursively
+# Find CSV files
 # ------------------------------------------------------------
 
-supported_extensions = {
-    ".csv",
-    ".xlsx",
-    ".xls",
-    ".json"
-}
-
-files = [
-    file for file in DATA_DIR.rglob("*")
-    if file.is_file() and file.suffix.lower() in supported_extensions
-]
+files = list(DATA_DIR.rglob("*.csv"))
 
 if not files:
-    print("\nNo CSV/Excel/JSON files found.")
-    print("Check that you extracted your datasets inside:")
-    print(DATA_DIR)
+    print("\nERROR: No CSV files found.")
+    print("Put your extracted datasets inside the data folder.")
     raise SystemExit(1)
 
+print(f"\nFound {len(files)} CSV files.")
 
-print(f"\nFound {len(files)} dataset file(s).\n")
+report = {}
+
+# ------------------------------------------------------------
+# Load CSV intelligently
+# ------------------------------------------------------------
+
+def load_csv(file_path):
+
+    # Read a small sample to detect separator
+    with open(
+        file_path,
+        "r",
+        encoding="utf-8",
+        errors="ignore"
+    ) as f:
+        sample = f.read(5000)
+
+    # Malware dataset uses |
+    if "|" in sample and "," not in sample.split("\n")[0]:
+        return pd.read_csv(
+            file_path,
+            sep="|",
+            low_memory=False
+        )
+
+    # Normal CSV
+    return pd.read_csv(
+        file_path,
+        low_memory=False
+    )
 
 
 # ------------------------------------------------------------
-# Store overall report
-# ------------------------------------------------------------
-
-full_report = {}
-
-
-# ------------------------------------------------------------
-# Analyze each file
+# Inspect each dataset
 # ------------------------------------------------------------
 
 for file_path in files:
 
-    relative_path = file_path.relative_to(DATA_DIR)
+    relative = file_path.relative_to(DATA_DIR)
 
-    print("\n" + "=" * 70)
-    print(f"FILE: {relative_path}")
-    print("=" * 70)
+    print("\n" + "=" * 75)
+    print(f"FILE: {relative}")
+    print("=" * 75)
 
     try:
 
-        # -----------------------------
-        # Load dataset
-        # -----------------------------
+        df = load_csv(file_path)
 
-        extension = file_path.suffix.lower()
+        rows, cols = df.shape
 
-        if extension == ".csv":
-            df = pd.read_csv(file_path, low_memory=False)
+        print(f"\nRows    : {rows:,}")
+        print(f"Columns : {cols}")
 
-        elif extension in [".xlsx", ".xls"]:
-            df = pd.read_excel(file_path)
+        # ----------------------------------------------------
+        # Columns
+        # ----------------------------------------------------
 
-        elif extension == ".json":
-            df = pd.read_json(file_path)
+        print("\nCOLUMNS")
 
-        else:
-            continue
-
-        # -----------------------------
-        # Basic information
-        # -----------------------------
-
-        rows, columns = df.shape
-
-        print(f"\nRows       : {rows:,}")
-        print(f"Columns    : {columns}")
-
-        print("\nColumns:")
         for column in df.columns:
-            print(f"  - {column}")
+            print(f"  {column}")
 
-        # -----------------------------
+        # ----------------------------------------------------
         # Data types
-        # -----------------------------
+        # ----------------------------------------------------
 
-        print("\nData types:")
+        print("\nDATA TYPES")
+
         print(df.dtypes.to_string())
 
-        # -----------------------------
+        # ----------------------------------------------------
         # Missing values
-        # -----------------------------
+        # ----------------------------------------------------
 
-        missing = df.isnull().sum()
+        print("\nMISSING VALUES")
 
-        print("\nMissing values:")
+        missing = df.isna().sum()
 
         missing_found = False
 
         for column, count in missing.items():
 
             if count > 0:
+
                 missing_found = True
 
                 percentage = (count / rows) * 100
 
                 print(
                     f"  {column}: "
-                    f"{count:,} ({percentage:.2f}%)"
+                    f"{count:,} "
+                    f"({percentage:.2f}%)"
                 )
 
         if not missing_found:
-            print("  No missing values.")
+            print("  None")
 
-        # -----------------------------
+        # ----------------------------------------------------
         # Duplicate rows
-        # -----------------------------
+        # ----------------------------------------------------
 
         duplicates = df.duplicated().sum()
 
-        print(f"\nDuplicate rows: {duplicates:,}")
+        print(f"\nDUPLICATE ROWS: {duplicates:,}")
 
-        # -----------------------------
+        # ----------------------------------------------------
         # Possible label columns
-        # -----------------------------
-
-        possible_labels = []
+        # ----------------------------------------------------
 
         label_keywords = [
             "label",
             "spam",
-            "class",
-            "target",
             "legitimate",
-            "malicious",
+            "target",
+            "class",
             "category",
-            "type"
+            "malicious"
         ]
+
+        label_columns = []
 
         for column in df.columns:
 
-            column_lower = str(column).lower()
+            column_name = str(column).lower()
 
             if any(
-                keyword in column_lower
+                keyword in column_name
                 for keyword in label_keywords
             ):
-                possible_labels.append(column)
+                label_columns.append(column)
 
-        print("\nPossible label columns:")
+        print("\nPOSSIBLE LABEL COLUMNS")
 
-        if possible_labels:
+        if label_columns:
 
-            for column in possible_labels:
+            for column in label_columns:
 
                 print(f"\n  {column}")
 
-                unique_values = df[column].value_counts(
+                counts = df[column].value_counts(
                     dropna=False
                 )
 
                 print(
-                    unique_values.head(20).to_string()
+                    counts.head(20).to_string()
                 )
 
         else:
-            print("  None detected.")
+            print("  None detected")
 
-        # -----------------------------
+        # ----------------------------------------------------
         # Numeric columns
-        # -----------------------------
+        # ----------------------------------------------------
 
         numeric_columns = df.select_dtypes(
             include="number"
         ).columns.tolist()
 
-        print("\nNumeric columns:")
+        print("\nNUMERIC COLUMNS")
+
+        print(
+            f"  {len(numeric_columns)} numeric columns"
+        )
 
         if numeric_columns:
             print(
                 "  " +
-                ", ".join(map(str, numeric_columns))
+                ", ".join(
+                    map(str, numeric_columns)
+                )
             )
-        else:
-            print("  None")
 
-        # -----------------------------
+        # ----------------------------------------------------
         # Text columns
-        # -----------------------------
+        # ----------------------------------------------------
 
         text_columns = df.select_dtypes(
             include=["object", "string"]
         ).columns.tolist()
 
-        print("\nText columns:")
+        print("\nTEXT COLUMNS")
+
+        print(
+            f"  {len(text_columns)} text columns"
+        )
 
         if text_columns:
             print(
                 "  " +
-                ", ".join(map(str, text_columns))
+                ", ".join(
+                    map(str, text_columns)
+                )
             )
-        else:
-            print("  None")
 
-        # -----------------------------
-        # First 3 records
-        # -----------------------------
+        # ----------------------------------------------------
+        # Sample data
+        # ----------------------------------------------------
 
-        print("\nFirst 3 records:")
+        print("\nFIRST 3 ROWS")
 
         print(
             df.head(3).to_string(
-                max_cols=20,
-                max_colwidth=60
+                max_columns=12,
+                max_colwidth=50
             )
         )
 
-        # -----------------------------
-        # Store report
-        # -----------------------------
+        # ----------------------------------------------------
+        # Numerical statistics
+        # ----------------------------------------------------
 
-        dataset_report = {
-            "file": str(relative_path),
+        if numeric_columns:
+
+            print("\nNUMERICAL SUMMARY")
+
+            print(
+                df[numeric_columns]
+                .describe()
+                .transpose()
+                .head(20)
+                .to_string()
+            )
+
+        # ----------------------------------------------------
+        # Save information
+        # ----------------------------------------------------
+
+        label_distribution = {}
+
+        for column in label_columns:
+
+            counts = df[column].value_counts(
+                dropna=False
+            )
+
+            label_distribution[str(column)] = {
+                str(index): int(value)
+                for index, value in counts.items()
+            }
+
+        report[str(relative)] = {
+
             "rows": int(rows),
-            "columns": int(columns),
+
+            "columns": int(cols),
+
             "column_names": [
-                str(column)
-                for column in df.columns
+                str(c)
+                for c in df.columns
             ],
+
             "data_types": {
-                str(column): str(dtype)
-                for column, dtype in df.dtypes.items()
+                str(c): str(dtype)
+                for c, dtype in df.dtypes.items()
             },
+
             "missing_values": {
-                str(column): int(count)
-                for column, count in missing.items()
-                if count > 0
+                str(c): int(v)
+                for c, v in missing.items()
+                if v > 0
             },
+
             "duplicate_rows": int(duplicates),
+
             "possible_label_columns": [
-                str(column)
-                for column in possible_labels
+                str(c)
+                for c in label_columns
             ],
+
+            "label_distribution": label_distribution,
+
             "numeric_columns": [
-                str(column)
-                for column in numeric_columns
+                str(c)
+                for c in numeric_columns
             ],
+
             "text_columns": [
-                str(column)
-                for column in text_columns
+                str(c)
+                for c in text_columns
             ]
         }
 
-        # Add label distributions
-
-        label_distributions = {}
-
-        for column in possible_labels:
-
-            values = df[column].value_counts(
-                dropna=False
-            ).head(20)
-
-            label_distributions[str(column)] = {
-                str(index): int(value)
-                for index, value in values.items()
-            }
-
-        dataset_report[
-            "label_distributions"
-        ] = label_distributions
-
-        full_report[str(relative_path)] = dataset_report
-
     except Exception as error:
 
-        print("\nERROR while reading file:")
+        print("\nERROR")
         print(error)
 
-        full_report[str(relative_path)] = {
-            "file": str(relative_path),
+        report[str(relative)] = {
             "error": str(error)
         }
 
 
 # ------------------------------------------------------------
-# Save JSON report
+# Save report
 # ------------------------------------------------------------
 
-report_file = REPORT_DIR / "dataset_inspection.json"
+output_file = REPORT_DIR / "dataset_inspection.json"
 
 with open(
-    report_file,
+    output_file,
     "w",
     encoding="utf-8"
-) as file:
+) as f:
 
     json.dump(
-        full_report,
-        file,
+        report,
+        f,
         indent=4,
         ensure_ascii=False
     )
 
 
 # ------------------------------------------------------------
-# Final message
+# Complete
 # ------------------------------------------------------------
 
-print("\n" + "=" * 70)
-print("DATASET INSPECTION COMPLETE")
-print("=" * 70)
+print("\n" + "=" * 75)
+print("             INSPECTION COMPLETE")
+print("=" * 75)
 
-print(f"\nReport saved to:")
-print(report_file)
+print("\nReport:")
+print(output_file)
 
-print("\nNext step:")
-print("Send me the terminal output from this script.")
+print("\nNext:")
+print("Send the terminal output to me.")

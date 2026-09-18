@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Datasets
+data/
+
+# Trained models
+models/*.pkl
+models/*.joblib
+models/*.json
+
+# Secrets
+.env
+
+# IDE
+.vscode/
+
+# Logs
+*.log

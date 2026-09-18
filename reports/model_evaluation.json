@@ -1,0 +1,70 @@
+{
+    "email_model": {
+        "dataset": "C:\\vit\\ThreatLensX\\data\\email\\emails.csv",
+        "samples": 5695,
+        "features": 50000,
+        "training_time_seconds": 0.13042020797729492,
+        "metrics": {
+            "accuracy": 0.9956101843722563,
+            "precision": 0.9890909090909091,
+            "recall": 0.9927007299270073,
+            "f1": 0.9908925318761385,
+            "confusion_matrix": [
+                [
+                    862,
+                    3
+                ],
+                [
+                    2,
+                    272
+                ]
+            ],
+            "roc_auc": 0.9999409307624151
+        }
+    },
+    "malware_model": {
+        "dataset": "C:\\vit\\ThreatLensX\\data\\malware\\malware.csv",
+        "samples": 138047,
+        "features": 54,
+        "training_time_seconds": 32.04071831703186,
+        "metrics": {
+            "accuracy": 0.9952553422672945,
+            "precision": 0.9978236086641102,
+            "recall": 0.9953993279917291,
+            "f1": 0.9966099940480811,
+            "confusion_matrix": [
+                [
+                    8223,
+                    42
+                ],
+                [
+                    89,
+                    19256
+                ]
+            ],
+            "roc_auc": 0.9997228876685433
+        },
+        "top_features": {
+            "ImageBase": 0.17309947971780895,
+            "VersionInformationSize": 0.1193026458972916,
+            "Characteristics": 0.08331701800824397,
+            "SizeOfStackReserve": 0.07897631900606586,
+            "ResourcesMinSize": 0.06629450555956552,
+            "MinorImageVersion": 0.042178326371793674,
+            "DllCharacteristics": 0.04203376448913324,
+            "ExportNb": 0.036410122000457776,
+            "MajorOperatingSystemVersion": 0.03630572847926584,
+            "SectionsMaxEntropy": 0.0322099499350272,
+            "ResourcesMinEntropy": 0.027222871137097433,
+            "ResourcesNb": 0.025571830334822195,
+            "Subsystem": 0.022501860082976124,
+            "BaseOfData": 0.019457749592258152,
+            "ResourcesMaxEntropy": 0.01890791468475796,
+            "SectionsMinEntropy": 0.013963036590466972,
+            "ImportsNb": 0.012506340029736426,
+            "MajorLinkerVersion": 0.012026311429969874,
+            "ResourcesMaxSize": 0.010855650852693414,
+            "SectionsMinRawsize": 0.009965692861803698
+        }
+    }
+}
